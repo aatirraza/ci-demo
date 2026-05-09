@@ -1,0 +1,38 @@
+name: CI and Git Pull CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          pip install fastapi uvicorn pytest httpx
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      - name: Run Tests
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+          pytest tests/test_main.py
+
+  deploy:
+    needs: test  # Only pull code if tests pass!
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH and Git Pull
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ~/ci-demo
+            git pull origin main
+            # No need for Docker, just restart your service or uvicorn
